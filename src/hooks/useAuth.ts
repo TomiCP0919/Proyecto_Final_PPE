@@ -23,15 +23,30 @@ export function useAuth() {
       return;
     }
 
-    const profile = await getProfile();
-    setState({ session, profile, loading: false });
+    try {
+      const profile = await getProfile();
+      if (!profile) {
+        // Si no se puede obtener el perfil (token inválido/expirado), forzamos limpieza
+        setState({ session: null, profile: null, loading: false });
+      } else {
+        setState({ session, profile, loading: false });
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+      setState({ session: null, profile: null, loading: false });
+    }
   }, []);
 
   useEffect(() => {
     /* Initial session check */
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      refreshProfile(session);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        refreshProfile(session);
+      })
+      .catch((error) => {
+        console.error('Error checking session:', error);
+        setState(s => ({ ...s, loading: false }));
+      });
 
     /* Listen for auth changes */
     const unsubscribe = onAuthStateChange((_event, session) => {

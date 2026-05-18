@@ -7,6 +7,9 @@ export default defineConfig({
   output: 'static',
   integrations: [react()],
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: ['react', 'react-dom/client']
+    }
   }
 });
