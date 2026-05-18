@@ -1,43 +1,38 @@
-# Astro Starter Kit: Minimal
+## Configuración de Supabase
 
-```sh
-npm create astro@latest -- --template minimal
-```
+La base de datos del proyecto usa Supabase con las siguientes tablas:
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+- `profiles`: usuarios administrativos y roles.
+- `categories`: categorías de productos.
+- `brands`: marcas de productos.
+- `products`: productos del e-commerce.
+- `product_images`: imágenes asociadas a cada producto.
 
-## 🚀 Project Structure
+Los scripts SQL se encuentran en la carpeta `database/`.
 
-Inside of your Astro project, you'll see the following folders and files:
+## Orden de ejecución recomendado en Supabase
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+1. `profiles.sql`
+2. `categories.sql`
+3. `brands.sql`
+4. `products.sql`
+5. `product_images.sql`
+6. `seed.sql`
+7. Crear bucket público `product-images`
+8. `policies.sql`
+9. `storage-policies.sql`
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Variables de entorno
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+Cada integrante debe crear un archivo `.env` tomando como base `.env.example`.
 
-Any static assets, like images, can be placed in the `public/` directory.
+Ejemplo:
 
-## 🧞 Commands
+PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+PUBLIC_SUPABASE_ANON_KEY=tu_clave_publica
 
-All commands are run from the root of the project, from a terminal:
+Estos datos se encuentran en Supabase:
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+Project Settings → API
 
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Importante: el archivo `.env` no debe subirse a GitHub.
