@@ -24,7 +24,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
     sku: '',
     category_id: '',
     brand_id: '',
-    status: 'draft' as const,
+    status: 'draft' as 'draft' | 'active' | 'archived',
     specifications: {} as Record<string, string | number | boolean>,
     weight_kg: null as number | null,
   });
@@ -169,7 +169,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
         if (imageRecords.length > 0) {
           const { error: imgError } = await supabase
             .from('product_images')
-            .insert(imageRecords);
+            .insert(imageRecords as any);
           if (imgError) throw imgError;
         }
       }
@@ -353,6 +353,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
               <ImageUploader
                 productId={productId}
                 existingImages={existingProduct?.images || []}
+                previews={previews}
+                onAddFiles={addFiles}
+                onRemovePreview={removePreview}
               />
             </div>
 

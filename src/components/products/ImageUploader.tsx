@@ -1,20 +1,21 @@
 import { useRef } from 'react';
-import { useImageUpload } from '../../hooks/useImageUpload';
+import type { ImagePreview } from '../../hooks/useImageUpload';
 
 interface ImageUploaderProps {
   productId?: string;
   existingImages?: Array<{ id: string; storage_path: string; alt_text: string | null; is_primary: boolean }>;
-  onImagesChange?: (paths: string[]) => void;
+  previews: ImagePreview[];
+  onAddFiles: (files: FileList | File[]) => void;
+  onRemovePreview: (id: string) => void;
 }
 
-export default function ImageUploader({ existingImages = [] }: ImageUploaderProps) {
+export default function ImageUploader({ existingImages = [], previews, onAddFiles, onRemovePreview }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { previews, addFiles, removePreview } = useImageUpload();
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files.length > 0) {
-      addFiles(e.dataTransfer.files);
+      onAddFiles(e.dataTransfer.files);
     }
   };
 
@@ -63,7 +64,7 @@ export default function ImageUploader({ existingImages = [] }: ImageUploaderProp
         accept="image/png,image/jpeg,image/webp"
         multiple
         className="hidden"
-        onChange={(e) => e.target.files && addFiles(e.target.files)}
+        onChange={(e) => e.target.files && onAddFiles(e.target.files)}
         id="image-upload-input"
       />
 
@@ -123,7 +124,7 @@ export default function ImageUploader({ existingImages = [] }: ImageUploaderProp
 
               {/* Remove button */}
               <button
-                onClick={() => removePreview(preview.id)}
+                onClick={() => onRemovePreview(preview.id)}
                 className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 style={{ background: 'rgba(239, 68, 68, 0.9)' }}
               >
