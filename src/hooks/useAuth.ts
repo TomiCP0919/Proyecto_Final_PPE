@@ -56,6 +56,47 @@ export function useAuth() {
     return unsubscribe;
   }, [refreshProfile]);
 
+  /* Inactivity auto-logout (10 minutes) */
+  useEffect(() => {
+    if (!state.session) return;
+
+    const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutos
+    let idleTimeout: number;
+
+    const handleIdle = async () => {
+      console.warn('Usuario inactivo por más de 10 minutos, cerrando sesión...');
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error('Error al cerrar sesión por inactividad:', err);
+      } finally {
+        window.location.href = '/login';
+      }
+    };
+
+    const resetIdleTimer = () => {
+      if (idleTimeout) window.clearTimeout(idleTimeout);
+      idleTimeout = window.setTimeout(handleIdle, INACTIVITY_TIMEOUT);
+    };
+
+    // Registrar eventos de interacción para detectar actividad
+    const events = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
+    
+    events.forEach((event) => {
+      window.addEventListener(event, resetIdleTimer);
+    });
+
+    // Iniciar cronómetro inicial
+    resetIdleTimer();
+
+    return () => {
+      if (idleTimeout) window.clearTimeout(idleTimeout);
+      events.forEach((event) => {
+        window.removeEventListener(event, resetIdleTimer);
+      });
+    };
+  }, [state.session]);
+
   return {
     session: state.session,
     profile: state.profile,

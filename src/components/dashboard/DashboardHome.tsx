@@ -31,7 +31,7 @@ export default function DashboardHome() {
     })();
   }, []);
 
-  const fmt = (n: number) => new Intl.NumberFormat('es-CR',{style:'currency',currency:'USD'}).format(n);
+  const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n);
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-ES',{day:'numeric',month:'short'});
   const statusLabel: Record<string,string> = { active:'Activo', draft:'Borrador', archived:'Archivado' };
   const statusCls: Record<string,string> = { active:'status-badge status-active', draft:'status-badge status-draft', archived:'status-badge status-archived' };

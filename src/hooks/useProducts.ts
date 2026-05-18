@@ -7,6 +7,7 @@ interface UseProductsOptions {
   pageSize?: number;
   search?: string;
   categoryId?: string;
+  brandId?: string;
   status?: string;
 }
 
@@ -20,7 +21,7 @@ interface UseProductsReturn {
 }
 
 export function useProducts(options: UseProductsOptions = {}): UseProductsReturn {
-  const { page = 1, pageSize = 10, search = '', categoryId, status } = options;
+  const { page = 1, pageSize = 10, search = '', categoryId, brandId, status } = options;
 
   const [products, setProducts] = useState<ProductWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,10 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
         query = query.eq('category_id', categoryId);
       }
 
+      if (brandId) {
+        query = query.eq('brand_id', brandId);
+      }
+
       if (status) {
         query = query.eq('status', status);
       }
@@ -67,7 +72,7 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, categoryId, status]);
+  }, [page, pageSize, search, categoryId, brandId, status]);
 
   useEffect(() => {
     fetchProducts();
