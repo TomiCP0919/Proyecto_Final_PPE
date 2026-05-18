@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { uploadProductImage, deleteProductImage, getImageUrl } from '../lib/storage';
 
-interface ImagePreview {
+export interface ImagePreview {
   id: string;
   file: File;
   previewUrl: string;
@@ -86,6 +86,7 @@ export function useImageUpload(): UseImageUploadReturn {
                 : p
             )
           );
+          throw new Error(`Error al subir imagen ${preview.file.name}: ${err.message}`);
         }
       }
 

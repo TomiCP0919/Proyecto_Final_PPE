@@ -28,8 +28,8 @@ export const productSchema = z.object({
     .max(50, 'El SKU no puede exceder 50 caracteres')
     .optional()
     .default(''),
-  category_id: z.string().uuid('Debe seleccionar una categoría').optional().default(''),
-  brand_id: z.string().uuid('Debe seleccionar una marca').optional().default(''),
+  category_id: z.string().uuid('Debe seleccionar una categoría').or(z.literal('')),
+  brand_id: z.string().uuid('Debe seleccionar una marca').or(z.literal('')),
   status: z.enum(['draft', 'active', 'archived'], {
     errorMap: () => ({ message: 'Estado inválido' }),
   }),
