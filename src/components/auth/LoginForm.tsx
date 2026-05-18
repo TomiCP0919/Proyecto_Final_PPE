@@ -194,8 +194,7 @@ export default function LoginForm() {
                 setSuccess(null);
                 setFieldErrors({});
               }}
-              className="text-sm font-medium transition-colors"
-              style={{ color: '#60a5fa' }}
+              className="text-sm font-medium text-blue-400 hover:text-blue-300 hover:underline cursor-pointer transition-all duration-200"
               disabled={loading}
             >
               {isRegistering
