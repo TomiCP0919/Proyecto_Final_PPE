@@ -152,11 +152,23 @@ export default function AdminShell({ children, currentPath = '' }: AdminShellPro
           <button
             onClick={handleSignOut}
             disabled={signingOut}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer"
             style={{
               color: '#ef4444',
               background: 'rgba(239, 68, 68, 0.08)',
               border: '1px solid rgba(239, 68, 68, 0.15)',
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = 'rgba(239, 68, 68, 0.16)';
+              el.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+              el.style.color = '#f87171';
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = 'rgba(239, 68, 68, 0.08)';
+              el.style.borderColor = 'rgba(239, 68, 68, 0.15)';
+              el.style.color = '#ef4444';
             }}
             id="sidebar-signout-btn"
           >
