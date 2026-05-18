@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { signIn } from '../../lib/auth';
+import { signIn, signUp } from '../../lib/auth';
 import { loginSchema } from '../../lib/validators';
 
 export default function LoginForm() {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setFieldErrors({});
 
     /* Validate with Zod */
@@ -28,14 +31,25 @@ export default function LoginForm() {
 
     setLoading(true);
     try {
-      await signIn(email, password);
-      window.location.href = '/dashboard';
+      if (isRegistering) {
+        await signUp(email, password);
+        setSuccess('¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.');
+        setIsRegistering(false);
+        setPassword('');
+      } else {
+        await signIn(email, password);
+        window.location.href = '/dashboard';
+      }
     } catch (err: any) {
-      setError(
-        err.message === 'Invalid login credentials'
-          ? 'Email o contraseña incorrectos'
-          : 'Error al iniciar sesión. Intente nuevamente.'
-      );
+      if (isRegistering) {
+        setError(`Error al registrarse: ${err.message}`);
+      } else {
+        setError(
+          err.message === 'Invalid login credentials'
+            ? 'Email o contraseña incorrectos'
+            : 'Error al iniciar sesión. Intente nuevamente.'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -69,11 +83,24 @@ export default function LoginForm() {
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Auth Card */}
         <div className="glass-card p-8">
           <h2 className="text-lg font-semibold text-white mb-6">
-            Iniciar Sesión
+            {isRegistering ? 'Crear nueva cuenta' : 'Iniciar Sesión'}
           </h2>
+
+          {success && (
+            <div
+              className="mb-4 p-3 rounded-xl text-sm font-medium animate-fade-in"
+              style={{
+                background: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.2)',
+                color: '#86efac',
+              }}
+            >
+              {success}
+            </div>
+          )}
 
           {error && (
             <div
@@ -125,10 +152,15 @@ export default function LoginForm() {
                 placeholder="••••••••"
                 className={`input-field ${fieldErrors.password ? 'input-error' : ''}`}
                 disabled={loading}
-                autoComplete="current-password"
+                autoComplete={isRegistering ? 'new-password' : 'current-password'}
               />
               {fieldErrors.password && (
                 <p className="error-text">{fieldErrors.password}</p>
+              )}
+              {isRegistering && (
+                <p className="text-xs mt-1 opacity-70" style={{ color: '#94a3b8' }}>
+                  Debe tener al menos 6 caracteres.
+                </p>
               )}
             </div>
 
@@ -144,13 +176,33 @@ export default function LoginForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Ingresando...
+                  {isRegistering ? 'Registrando...' : 'Ingresando...'}
                 </>
               ) : (
-                'Iniciar Sesión'
+                isRegistering ? 'Crear cuenta' : 'Iniciar Sesión'
               )}
             </button>
           </form>
+
+          {/* Toggle Button */}
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsRegistering(!isRegistering);
+                setError(null);
+                setSuccess(null);
+                setFieldErrors({});
+              }}
+              className="text-sm font-medium transition-colors"
+              style={{ color: '#60a5fa' }}
+              disabled={loading}
+            >
+              {isRegistering
+                ? '¿Ya tienes cuenta? Inicia sesión aquí'
+                : '¿Necesitas acceso? Crea una cuenta'}
+            </button>
+          </div>
         </div>
 
         <p className="text-center text-xs mt-6" style={{ color: '#475569' }}>
