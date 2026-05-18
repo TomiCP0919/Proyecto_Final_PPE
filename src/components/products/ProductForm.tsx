@@ -18,15 +18,15 @@ export default function ProductForm({ productId }: ProductFormProps) {
     name: '',
     description: '',
     short_description: '',
-    price: 0,
-    compare_at_price: null as number | null,
-    stock: 0,
+    price: '' as string | number,
+    compare_at_price: '' as string | number | null,
+    stock: '' as string | number,
     sku: '',
     category_id: '',
     brand_id: '',
     status: 'draft' as 'draft' | 'active' | 'archived',
     specifications: {} as Record<string, string | number | boolean>,
-    weight_kg: null as number | null,
+    weight_kg: '' as string | number | null,
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -52,8 +52,10 @@ export default function ProductForm({ productId }: ProductFormProps) {
           supabase.from('brands').select('*').eq('is_active', true).order('name'),
         ]);
 
-        setCategories((catRes.data as Category[]) || []);
-        setBrands((brandRes.data as Brand[]) || []);
+        const loadedCats = (catRes.data as Category[]) || [];
+        const loadedBrands = (brandRes.data as Brand[]) || [];
+        setCategories(loadedCats);
+        setBrands(loadedBrands);
 
         if (productId) {
           const product = await getProductById(productId);
@@ -88,10 +90,10 @@ export default function ProductForm({ productId }: ProductFormProps) {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: type === 'number' ? (value === '' ? 0 : parseFloat(value)) : value,
+      [name]: value,
     }));
     /* Clear field error on change */
     if (fieldErrors[name]) {
@@ -125,8 +127,22 @@ export default function ProductForm({ productId }: ProductFormProps) {
     e.preventDefault();
     setFieldErrors({});
 
+    /* Parse text values to numbers */
+    const parsedPrice = form.price === '' ? undefined : Number(form.price);
+    const parsedComparePrice = (form.compare_at_price === '' || form.compare_at_price === null || form.compare_at_price === undefined) ? null : Number(form.compare_at_price);
+    const parsedStock = form.stock === '' ? undefined : Number(form.stock);
+    const parsedWeight = (form.weight_kg === '' || form.weight_kg === null || form.weight_kg === undefined) ? null : Number(form.weight_kg);
+
     /* Validate */
-    const result = productSchema.safeParse(form);
+    const validationForm = {
+      ...form,
+      price: parsedPrice,
+      compare_at_price: parsedComparePrice,
+      stock: parsedStock,
+      weight_kg: parsedWeight,
+    };
+
+    const result = productSchema.safeParse(validationForm);
     if (!result.success) {
       const errors: Record<string, string> = {};
       result.error.issues.forEach((issue) => {
@@ -141,6 +157,10 @@ export default function ProductForm({ productId }: ProductFormProps) {
     try {
       const productData: Record<string, any> = {
         ...form,
+        price: parsedPrice,
+        compare_at_price: parsedComparePrice,
+        stock: parsedStock,
+        weight_kg: parsedWeight,
         category_id: form.category_id || null,
         brand_id: form.brand_id || null,
         sku: form.sku || null,
@@ -285,15 +305,16 @@ export default function ProductForm({ productId }: ProductFormProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="product-price" className="input-label">Precio (USD) *</label>
+                  <label htmlFor="product-price" className="input-label">Precio (COP) *</label>
                   <input
                     id="product-price"
                     name="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={form.price}
                     onChange={handleChange}
+                    placeholder="Ej: 1550000"
                     className={`input-field ${fieldErrors.price ? 'input-error' : ''}`}
                   />
                   {fieldErrors.price && <p className="error-text">{fieldErrors.price}</p>}
@@ -304,18 +325,13 @@ export default function ProductForm({ productId }: ProductFormProps) {
                   <input
                     id="product-compare-price"
                     name="compare_at_price"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={form.compare_at_price ?? ''}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        compare_at_price: e.target.value ? parseFloat(e.target.value) : null,
-                      }))
-                    }
+                    onChange={handleChange}
                     className="input-field"
-                    placeholder="Opcional"
+                    placeholder="Ej: 1799960"
                   />
                 </div>
 
@@ -324,11 +340,12 @@ export default function ProductForm({ productId }: ProductFormProps) {
                   <input
                     id="product-stock"
                     name="stock"
-                    type="number"
-                    min="0"
-                    step="1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={form.stock}
                     onChange={handleChange}
+                    placeholder="Ej: 50"
                     className={`input-field ${fieldErrors.stock ? 'input-error' : ''}`}
                   />
                   {fieldErrors.stock && <p className="error-text">{fieldErrors.stock}</p>}
@@ -467,35 +484,41 @@ export default function ProductForm({ productId }: ProductFormProps) {
               <h3 className="text-sm font-semibold text-white mb-2">Organización</h3>
 
               <div>
-                <label htmlFor="product-category" className="input-label">Categoría</label>
+                <label htmlFor="product-category" className="input-label">Categoría *</label>
                 <select
                   id="product-category"
                   name="category_id"
                   value={form.category_id}
                   onChange={handleChange}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.category_id ? 'input-error' : ''}`}
                 >
-                  <option value="">Sin categoría</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  <option value="">Seleccione una categoría</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
+                {fieldErrors.category_id && <p className="error-text">{fieldErrors.category_id}</p>}
               </div>
 
               <div>
-                <label htmlFor="product-brand" className="input-label">Marca</label>
+                <label htmlFor="product-brand" className="input-label">Marca *</label>
                 <select
                   id="product-brand"
                   name="brand_id"
                   value={form.brand_id}
                   onChange={handleChange}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.brand_id ? 'input-error' : ''}`}
                 >
-                  <option value="">Sin marca</option>
-                  {brands.map((brand) => (
-                    <option key={brand.id} value={brand.id}>{brand.name}</option>
+                  <option value="">Seleccione una marca</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
                   ))}
                 </select>
+                {fieldErrors.brand_id && <p className="error-text">{fieldErrors.brand_id}</p>}
               </div>
 
               <div>
@@ -503,18 +526,11 @@ export default function ProductForm({ productId }: ProductFormProps) {
                 <input
                   id="product-weight"
                   name="weight_kg"
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
                   value={form.weight_kg ?? ''}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      weight_kg: e.target.value ? parseFloat(e.target.value) : null,
-                    }))
-                  }
+                  onChange={handleChange}
                   className="input-field"
-                  placeholder="Opcional"
+                  placeholder="Ej: 1.5 (Opcional)"
                 />
               </div>
             </div>

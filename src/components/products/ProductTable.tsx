@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useProducts, deleteProduct } from '../../hooks/useProducts';
+import { supabase } from '../../lib/supabase';
 import { deleteAllProductImages } from '../../lib/storage';
 import { getImageUrl } from '../../lib/storage';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -11,20 +12,58 @@ export default function ProductTable() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<ProductWithRelations | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Cargar categorías y marcas activas para los filtros
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const [catRes, brandRes] = await Promise.all([
+          supabase.from('categories').select('id, name').eq('is_active', true).order('name'),
+          supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
+        ]);
+        if (catRes.data) setCategories(catRes.data);
+        if (brandRes.data) setBrands(brandRes.data);
+      } catch (err) {
+        console.error('Error al cargar filtros:', err);
+      }
+    };
+    loadFilters();
+  }, []);
+
+  // Buscador en vivo con debounce de 300ms
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchInput]);
 
   const { products, loading, error, totalCount, totalPages, refetch } = useProducts({
     page,
     pageSize: 10,
     search,
     status: statusFilter || undefined,
+    categoryId: categoryFilter || undefined,
+    brandId: brandFilter || undefined,
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
+  const handleClearFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setStatusFilter('');
+    setCategoryFilter('');
+    setBrandFilter('');
     setPage(1);
   };
 
@@ -63,7 +102,7 @@ export default function ProductTable() {
   };
 
   const formatPrice = (price: number) =>
-    new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'USD' }).format(price);
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price);
 
   return (
     <div className="animate-fade-in">
@@ -84,36 +123,88 @@ export default function ProductTable() {
       </div>
 
       {/* Filters */}
-      <div className="glass-card p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <form onSubmit={handleSearch} className="flex-1 flex gap-2">
+      <div className="glass-card p-5 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-center">
+          {/* Live Search Input */}
+          <div className="sm:col-span-2 lg:col-span-4 relative">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="w-4 h-4" style={{ color: '#94a3b8' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
             <input
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Buscar por nombre o SKU..."
-              className="input-field flex-1"
+              className="input-field w-full pl-9"
               id="product-search-input"
             />
-            <button type="submit" className="btn-secondary shrink-0">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              Buscar
-            </button>
-          </form>
+          </div>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="input-field sm:w-44"
-            id="product-status-filter"
-          >
-            <option value="">Todos los estados</option>
-            <option value="active">Activo</option>
-            <option value="draft">Borrador</option>
-            <option value="archived">Archivado</option>
-          </select>
+          {/* Category Filter */}
+          <div className="lg:col-span-2">
+            <select
+              value={categoryFilter}
+              onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+              className="input-field w-full"
+              id="product-category-filter"
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Brand Filter */}
+          <div className="lg:col-span-2">
+            <select
+              value={brandFilter}
+              onChange={(e) => { setBrandFilter(e.target.value); setPage(1); }}
+              className="input-field w-full"
+              id="product-brand-filter"
+            >
+              <option value="">Todas las marcas</option>
+              {brands.map((brand) => (
+                <option key={brand.id} value={brand.id}>
+                  {brand.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="lg:col-span-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              className="input-field w-full"
+              id="product-status-filter"
+            >
+              <option value="">Todos los estados</option>
+              <option value="active">Activo</option>
+              <option value="draft">Borrador</option>
+              <option value="archived">Archivado</option>
+            </select>
+          </div>
+
+          {/* Clear Filters Button */}
+          <div className="lg:col-span-2">
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="btn-secondary w-full flex items-center justify-center gap-2 hover:bg-slate-800 transition-all duration-200"
+              style={{ borderColor: 'rgba(148, 163, 184, 0.2)' }}
+            >
+              <svg className="w-4 h-4" style={{ color: '#94a3b8' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Limpiar
+            </button>
+          </div>
         </div>
       </div>
 
