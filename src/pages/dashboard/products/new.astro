@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import ProductNewPage from '../../../components/pages/ProductNewPage';
+import '../../../styles/globals.css';
+---
+<BaseLayout title="Nuevo Producto">
+  <ProductNewPage client:load />
+</BaseLayout>

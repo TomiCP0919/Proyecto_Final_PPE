@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import CategoriesPage from '../../../components/pages/CategoriesPage';
+import '../../../styles/globals.css';
+---
+<BaseLayout title="Categorías">
+  <CategoriesPage client:load />
+</BaseLayout>

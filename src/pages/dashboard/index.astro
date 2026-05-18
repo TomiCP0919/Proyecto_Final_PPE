@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DashboardPage from '../../components/pages/DashboardPage';
+import '../../styles/globals.css';
+---
+<BaseLayout title="Dashboard">
+  <DashboardPage client:load />
+</BaseLayout>
