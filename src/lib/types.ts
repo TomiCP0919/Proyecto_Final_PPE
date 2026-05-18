@@ -99,26 +99,31 @@ export interface Database {
         Row: Profile;
         Insert: Omit<Profile, 'created_at' | 'updated_at'>;
         Update: Partial<Omit<Profile, 'id' | 'created_at'>>;
+        Relationships: [];
       };
       categories: {
         Row: Category;
         Insert: Omit<Category, 'id' | 'created_at'>;
         Update: Partial<Omit<Category, 'id' | 'created_at'>>;
+        Relationships: [];
       };
       brands: {
         Row: Brand;
         Insert: Omit<Brand, 'id' | 'created_at'>;
         Update: Partial<Omit<Brand, 'id' | 'created_at'>>;
+        Relationships: [];
       };
       products: {
         Row: Product;
         Insert: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'slug'>;
         Update: Partial<Omit<Product, 'id' | 'created_at'>>;
+        Relationships: [];
       };
       product_images: {
         Row: ProductImage;
         Insert: Omit<ProductImage, 'id' | 'created_at'>;
         Update: Partial<Omit<ProductImage, 'id' | 'created_at'>>;
+        Relationships: [];
       };
     };
   };

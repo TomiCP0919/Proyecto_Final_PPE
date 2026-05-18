@@ -49,6 +49,19 @@ export const categorySchema = z.object({
     .default(''),
 });
 
+export const brandSchema = z.object({
+  name: z
+    .string()
+    .min(2, 'El nombre debe tener al menos 2 caracteres')
+    .max(100, 'El nombre no puede exceder 100 caracteres'),
+  logo_url: z
+    .string()
+    .url('Ingrese una URL de logo válida')
+    .or(z.literal(''))
+    .optional()
+    .nullable(),
+});
+
 export const loginSchema = z.object({
   email: z.string().email('Ingrese un email válido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -56,4 +69,5 @@ export const loginSchema = z.object({
 
 export type ProductFormValues = z.infer<typeof productSchema>;
 export type CategoryFormValues = z.infer<typeof categorySchema>;
+export type BrandFormValues = z.infer<typeof brandSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
