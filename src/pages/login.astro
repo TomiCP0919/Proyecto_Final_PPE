@@ -1,16 +1,17 @@
 ---
 export const prerender = true;
 import BaseLayout from '../layouts/BaseLayout.astro';
+import LoginForm from '../components/auth/LoginForm';
 import '../styles/globals.css';
 ---
-<BaseLayout title="TechHub">
-  <div id="index-root"></div>
+<BaseLayout title="Iniciar Sesión">
+  <LoginForm client:load />
 </BaseLayout>
 
 <script>
   import { supabase } from '../lib/supabase';
-  // Redirect based on auth state
+  // If already logged in, redirect to dashboard
   supabase.auth.getSession().then(({ data: { session } }) => {
-    window.location.href = session ? '/dashboard' : '/login';
+    if (session) window.location.href = '/dashboard';
   });
 </script>

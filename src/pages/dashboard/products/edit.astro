@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import ProductEditPage from '../../../components/pages/ProductEditPage';
+import '../../../styles/globals.css';
+
+/* For SSG, this page acts as a shell — the actual product ID
+   is read from the URL by the React component at runtime. */
+---
+<BaseLayout title="Editar Producto">
+  <ProductEditPage client:load />
+</BaseLayout>
