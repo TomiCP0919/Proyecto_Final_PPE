@@ -15,7 +15,6 @@ create table if not exists public.profiles (
   full_name text,
   role text not null default 'editor' check (role in ('admin', 'editor')),
   approval_status text not null default 'pending' check (approval_status in ('pending', 'approved', 'rejected')),
-  avatar_url text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -62,7 +61,6 @@ begin
     full_name,
     role,
     approval_status,
-    avatar_url
   )
   values (
     new.id,

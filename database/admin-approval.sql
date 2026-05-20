@@ -53,7 +53,6 @@ begin
     full_name,
     role,
     approval_status,
-    avatar_url
   )
   values (
     new.id,
