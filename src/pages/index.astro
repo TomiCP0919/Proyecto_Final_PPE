@@ -43,6 +43,14 @@ const { count } = await applyFilters(
 
 // Productos paginados
 const from = (page - 1) * PAGE_SIZE;
+type CatalogProduct = {
+  id: string; name: string; slug: string;
+  short_description: string | null;
+  price: number; compare_at_price: number | null; stock: number;
+  category: { name: string; slug: string } | null;
+  brand: { name: string; slug: string } | null;
+  images: { storage_path: string; alt_text: string | null; is_primary: boolean; display_order: number }[];
+};
 const { data: products } = await applyFilters(
   supabase
     .from('products')
@@ -53,7 +61,7 @@ const { data: products } = await applyFilters(
       images:product_images(storage_path, alt_text, is_primary, display_order)
     `)
     .order('created_at', { ascending: false })
-).range(from, from + PAGE_SIZE - 1);
+).range(from, from + PAGE_SIZE - 1) as { data: CatalogProduct[] | null };
 
 const totalPages     = Math.ceil((count ?? 0) / PAGE_SIZE);
 const supabaseUrl    = import.meta.env.PUBLIC_SUPABASE_URL as string;
@@ -61,6 +69,9 @@ const categoriaLabel = categories?.find(c => c.slug === categoriaSlug)?.name ?? 
 const marcaLabel     = brands?.find(b => b.slug === marcaSlug)?.name ?? '';
 
 const hayFiltros = search || categoriaSlug || marcaSlug || precioMin !== null || precioMax !== null;
+
+const formatCOP = (n: number) =>
+  `$ ${n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 // Construye URL preservando los filtros activos, cambiando solo el param indicado
 function filterUrl(key: string, value: string) {
@@ -143,7 +154,7 @@ function getPaginationRange(current: number, total: number): (number | '...')[] 
 
         <!-- Fila 2: filtro de precio -->
         <div class="mt-3 flex flex-wrap items-center gap-3">
-          <span class="text-xs font-medium text-slate-400 shrink-0">Precio (USD):</span>
+          <span class="text-xs font-medium text-slate-400 shrink-0">Precio (COP):</span>
           <div class="flex items-center gap-2">
             <input
               type="number" name="precio_min"
@@ -200,17 +211,17 @@ function getPaginationRange(current: number, total: number): (number | '...')[] 
 
         {precioMin !== null && precioMax !== null && (
           <span class="rounded-full border border-emerald-700/40 bg-emerald-900/20 px-3 py-0.5 text-xs font-medium text-emerald-300">
-            ${precioMin} — ${precioMax}
+            {formatCOP(precioMin)} — {formatCOP(precioMax)}
           </span>
         )}
         {precioMin !== null && precioMax === null && (
           <span class="rounded-full border border-emerald-700/40 bg-emerald-900/20 px-3 py-0.5 text-xs font-medium text-emerald-300">
-            Desde ${precioMin}
+            Desde {formatCOP(precioMin)}
           </span>
         )}
         {precioMin === null && precioMax !== null && (
           <span class="rounded-full border border-emerald-700/40 bg-emerald-900/20 px-3 py-0.5 text-xs font-medium text-emerald-300">
-            Hasta ${precioMax}
+            Hasta {formatCOP(precioMax)}
           </span>
         )}
 
@@ -228,7 +239,7 @@ function getPaginationRange(current: number, total: number): (number | '...')[] 
     {products && products.length > 0 ? (
       <>
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => {
+          {(products ?? []).map((product) => {
             const imgs    = [...(product.images ?? [])].sort((a, b) => a.display_order - b.display_order);
             const primary = imgs.find(i => i.is_primary) ?? imgs[0];
             const imgUrl  = primary ? getImageUrl(supabaseUrl, primary.storage_path) : null;

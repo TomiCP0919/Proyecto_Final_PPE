@@ -155,10 +155,10 @@ export default function AdminShell({ children, currentPath = '' }: AdminShellPro
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-medium text-white truncate">
-                {profile?.full_name || 'Administrador'}
+                {profile?.full_name || user?.email || 'Usuario'}
               </p>
-              <p className="text-xs truncate" style={{ color: '#64748b' }}>
-                {user?.email || ''}
+              <p className="text-xs truncate capitalize" style={{ color: '#64748b' }}>
+                {profile?.role === 'admin' ? 'Administrador' : profile?.role === 'editor' ? 'Editor' : ''}
               </p>
             </div>
           </div>
@@ -221,9 +221,18 @@ export default function AdminShell({ children, currentPath = '' }: AdminShellPro
 
           {/* Right side — could add notifications, etc. */}
           <div className="flex items-center gap-2">
-            <span className="hidden sm:block text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#34d399' }}>
-              Admin
-            </span>
+            {profile?.role && (
+              <span
+                className="hidden sm:block text-xs px-2.5 py-1 rounded-full font-medium"
+                style={
+                  profile.role === 'admin'
+                    ? { background: 'rgba(16, 185, 129, 0.1)', color: '#34d399' }
+                    : { background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }
+                }
+              >
+                {profile.role === 'admin' ? 'Administrador' : 'Editor'}
+              </span>
+            )}
           </div>
         </header>
 
