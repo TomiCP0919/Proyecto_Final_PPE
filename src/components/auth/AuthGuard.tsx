@@ -19,6 +19,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     if (!loading) {
       if (!isAuthenticated) {
+        setReady(false);
         window.location.href = '/login';
       } else {
         setReady(true);
@@ -27,10 +28,13 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   }, [loading, isAuthenticated]);
 
   const handleLogout = async () => {
+    setReady(false);
     setSigningOut(true);
     try {
       await signOut();
+      window.location.href = '/login';
     } catch {
+      setReady(true);
       setSigningOut(false);
     }
   };
