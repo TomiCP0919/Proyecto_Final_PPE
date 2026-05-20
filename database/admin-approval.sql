@@ -10,6 +10,10 @@ add column if not exists email text;
 alter table public.profiles
 add column if not exists approval_status text not null default 'pending';
 
+-- Eliminar avatar_url si existía en versiones anteriores
+alter table public.profiles
+drop column if exists avatar_url;
+
 -- Restricción para estados válidos
 alter table public.profiles
 drop constraint if exists profiles_approval_status_check;
@@ -30,6 +34,16 @@ update public.profiles
 set approval_status = 'approved'
 where role in ('admin', 'editor')
 and approval_status = 'pending';
+
+-- Corregir nombres de usuarios existentes según su rol
+update public.profiles
+set full_name = case
+  when role = 'admin' then 'Administrador TechHub'
+  when role = 'editor' then 'Editor TechHub'
+  else full_name
+end
+where role in ('admin', 'editor')
+and (full_name is null or full_name = 'Usuario pendiente');
 
 -- Índice único para email cuando exista
 create unique index if not exists profiles_email_unique
@@ -52,15 +66,14 @@ begin
     email,
     full_name,
     role,
-    approval_status,
+    approval_status
   )
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', 'Usuario pendiente'),
     'editor',
-    'pending',
-    null
+    'pending'
   )
   on conflict (id) do nothing;
 

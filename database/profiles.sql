@@ -60,15 +60,14 @@ begin
     email,
     full_name,
     role,
-    approval_status,
+    approval_status
   )
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', 'Usuario pendiente'),
     'editor',
-    'pending',
-    null
+    'pending'
   )
   on conflict (id) do nothing;
 
