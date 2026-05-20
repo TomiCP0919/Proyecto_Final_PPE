@@ -1,16 +1,355 @@
 ---
-export const prerender = true;
-import BaseLayout from '../layouts/BaseLayout.astro';
-import '../styles/globals.css';
----
-<BaseLayout title="TechHub">
-  <div id="index-root"></div>
-</BaseLayout>
+export const prerender = false;
 
-<script>
-  import { supabase } from '../lib/supabase';
-  // Redirect based on auth state
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    window.location.href = session ? '/dashboard' : '/login';
-  });
-</script>
+import LayoutPublico from '../layouts/LayoutPublico.astro';
+import { createServerSupabase, getImageUrl } from '../lib/supabaseServer';
+import '../styles/globals.css';
+
+const supabase    = createServerSupabase();
+const reqUrl      = new URL(Astro.request.url);
+
+const search        = reqUrl.searchParams.get('q')          ?? '';
+const categoriaSlug = reqUrl.searchParams.get('categoria')  ?? '';
+const marcaSlug     = reqUrl.searchParams.get('marca')      ?? '';
+const precioMin     = reqUrl.searchParams.get('precio_min') ? Number(reqUrl.searchParams.get('precio_min')) : null;
+const precioMax     = reqUrl.searchParams.get('precio_max') ? Number(reqUrl.searchParams.get('precio_max')) : null;
+const page          = Math.max(1, parseInt(reqUrl.searchParams.get('page') ?? '1'));
+const PAGE_SIZE     = 8;
+
+// Opciones de filtros
+const [{ data: categories }, { data: brands }] = await Promise.all([
+  supabase.from('categories').select('id, name, slug').eq('is_active', true).order('name'),
+  supabase.from('brands').select('id, name, slug').eq('is_active', true).order('name'),
+]);
+
+const categoriaId = categories?.find(c => c.slug === categoriaSlug)?.id ?? null;
+const marcaId     = brands?.find(b => b.slug === marcaSlug)?.id ?? null;
+
+// Aplica todos los filtros activos a una query dada
+function applyFilters(q: any) {
+  q = q.eq('status', 'active');
+  if (search)      q = q.ilike('name', `%${search}%`);
+  if (categoriaId) q = q.eq('category_id', categoriaId);
+  if (marcaId)     q = q.eq('brand_id', marcaId);
+  if (precioMin !== null) q = q.gte('price', precioMin);
+  if (precioMax !== null) q = q.lte('price', precioMax);
+  return q;
+}
+
+// Conteo total para paginación
+const { count } = await applyFilters(
+  supabase.from('products').select('*', { count: 'exact', head: true })
+);
+
+// Productos paginados
+const from = (page - 1) * PAGE_SIZE;
+const { data: products } = await applyFilters(
+  supabase
+    .from('products')
+    .select(`
+      id, name, slug, short_description, price, compare_at_price, stock,
+      category:categories(name, slug),
+      brand:brands(name, slug),
+      images:product_images(storage_path, alt_text, is_primary, display_order)
+    `)
+    .order('created_at', { ascending: false })
+).range(from, from + PAGE_SIZE - 1);
+
+const totalPages     = Math.ceil((count ?? 0) / PAGE_SIZE);
+const supabaseUrl    = import.meta.env.PUBLIC_SUPABASE_URL as string;
+const categoriaLabel = categories?.find(c => c.slug === categoriaSlug)?.name ?? '';
+const marcaLabel     = brands?.find(b => b.slug === marcaSlug)?.name ?? '';
+
+const hayFiltros = search || categoriaSlug || marcaSlug || precioMin !== null || precioMax !== null;
+
+// Construye URL preservando los filtros activos, cambiando solo el param indicado
+function filterUrl(key: string, value: string) {
+  const u = new URL(reqUrl);
+  if (value) u.searchParams.set(key, value);
+  else u.searchParams.delete(key);
+  u.searchParams.delete('page');
+  return u.pathname + u.search;
+}
+function pageUrl(p: number) {
+  const u = new URL(reqUrl);
+  u.searchParams.set('page', String(p));
+  return u.pathname + u.search;
+}
+function getPaginationRange(current: number, total: number): (number | '...')[] {
+  const pages = Array.from({ length: total }, (_, i) => i + 1)
+    .filter(p => p === 1 || p === total || Math.abs(p - current) <= 1);
+  return pages.reduce((acc: (number | '...')[], p, i) => {
+    if (i > 0 && p - (pages[i - 1] as number) > 1) acc.push('...');
+    acc.push(p);
+    return acc;
+  }, []);
+}
+---
+
+<LayoutPublico title="Catálogo">
+
+  <!-- Hero -->
+  <section class="border-b border-white/5 bg-gradient-to-b from-slate-900 to-[#020617] py-12">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold text-white sm:text-4xl">
+        Componentes PC <span class="text-blue-400">&amp;</span> Gadgets
+      </h1>
+      <p class="mt-2 text-slate-400">Los mejores componentes para armar tu setup perfecto.</p>
+    </div>
+  </section>
+
+  <!-- Barra de filtros -->
+  <section class="sticky top-16 z-40 border-b border-white/5 bg-[#020617]/95 backdrop-blur py-4 shadow-lg shadow-black/20">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <form method="get">
+
+        <!-- Fila 1: búsqueda + categoría + marca + botón -->
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div class="relative flex-1">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="search" name="q" value={search}
+              placeholder="Buscar productos..."
+              class="input-field pl-9"
+            />
+          </div>
+
+          <select name="categoria" class="input-field sm:w-52" onchange="this.form.submit()">
+            <option value="">Todas las categorías</option>
+            {categories?.map(cat => (
+              <option value={cat.slug} selected={cat.slug === categoriaSlug}>{cat.name}</option>
+            ))}
+          </select>
+
+          <select name="marca" class="input-field sm:w-44" onchange="this.form.submit()">
+            <option value="">Todas las marcas</option>
+            {brands?.map(brand => (
+              <option value={brand.slug} selected={brand.slug === marcaSlug}>{brand.name}</option>
+            ))}
+          </select>
+
+          <button type="submit" class="btn-primary shrink-0">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            Buscar
+          </button>
+        </div>
+
+        <!-- Fila 2: filtro de precio -->
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <span class="text-xs font-medium text-slate-400 shrink-0">Precio (USD):</span>
+          <div class="flex items-center gap-2">
+            <input
+              type="number" name="precio_min"
+              value={precioMin ?? ''}
+              min="0" placeholder="Mín"
+              class="input-field w-28 text-sm"
+            />
+            <span class="text-slate-500 text-sm">—</span>
+            <input
+              type="number" name="precio_max"
+              value={precioMax ?? ''}
+              min="0" placeholder="Máx"
+              class="input-field w-28 text-sm"
+            />
+            <button type="submit" class="btn-secondary text-xs py-1.5">Aplicar</button>
+          </div>
+          {(precioMin !== null || precioMax !== null) && (
+            <a
+              href={(() => { const u = new URL(reqUrl); u.searchParams.delete('precio_min'); u.searchParams.delete('precio_max'); u.searchParams.delete('page'); return u.pathname + u.search; })()}
+              class="text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2 transition-colors"
+            >
+              Quitar precio
+            </a>
+          )}
+        </div>
+      </form>
+
+      <!-- Conteo + chips de filtros activos -->
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <span class="text-sm text-slate-400">
+          {count ?? 0} producto{(count ?? 0) !== 1 ? 's' : ''}
+          {search && <span> para &ldquo;<strong class="text-slate-200">{search}</strong>&rdquo;</span>}
+        </span>
+
+        {categoriaSlug && (
+          <a href={filterUrl('categoria', '')}
+            class="flex items-center gap-1 rounded-full border border-blue-700/40 bg-blue-900/30 px-3 py-0.5 text-xs font-medium text-blue-300 hover:bg-blue-900/50 transition-colors">
+            {categoriaLabel}
+            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </a>
+        )}
+
+        {marcaSlug && (
+          <a href={filterUrl('marca', '')}
+            class="flex items-center gap-1 rounded-full border border-blue-700/40 bg-blue-900/30 px-3 py-0.5 text-xs font-medium text-blue-300 hover:bg-blue-900/50 transition-colors">
+            {marcaLabel}
+            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </a>
+        )}
+
+        {precioMin !== null && precioMax !== null && (
+          <span class="rounded-full border border-emerald-700/40 bg-emerald-900/20 px-3 py-0.5 text-xs font-medium text-emerald-300">
+            ${precioMin} — ${precioMax}
+          </span>
+        )}
+        {precioMin !== null && precioMax === null && (
+          <span class="rounded-full border border-emerald-700/40 bg-emerald-900/20 px-3 py-0.5 text-xs font-medium text-emerald-300">
+            Desde ${precioMin}
+          </span>
+        )}
+        {precioMin === null && precioMax !== null && (
+          <span class="rounded-full border border-emerald-700/40 bg-emerald-900/20 px-3 py-0.5 text-xs font-medium text-emerald-300">
+            Hasta ${precioMax}
+          </span>
+        )}
+
+        {hayFiltros && (
+          <a href="/" class="text-xs text-slate-600 hover:text-slate-400 transition-colors underline underline-offset-2">
+            Limpiar todo
+          </a>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <!-- Grid de productos -->
+  <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    {products && products.length > 0 ? (
+      <>
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {products.map((product) => {
+            const imgs    = [...(product.images ?? [])].sort((a, b) => a.display_order - b.display_order);
+            const primary = imgs.find(i => i.is_primary) ?? imgs[0];
+            const imgUrl  = primary ? getImageUrl(supabaseUrl, primary.storage_path) : null;
+            const discount = product.compare_at_price
+              ? Math.round((1 - product.price / product.compare_at_price) * 100)
+              : null;
+
+            return (
+              <a href={`/product/${product.id}`} class="glass-card glass-card-hover flex flex-col overflow-hidden">
+                <!-- Imagen -->
+                <div class="relative aspect-[4/3] overflow-hidden bg-slate-800">
+                  {imgUrl ? (
+                    <img
+                      src={imgUrl}
+                      alt={primary?.alt_text ?? product.name}
+                      class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div class="flex h-full items-center justify-center">
+                      <svg class="h-14 w-14 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  {discount && (
+                    <span class="absolute right-2 top-2 rounded-md bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                      -{discount}%
+                    </span>
+                  )}
+                  {product.stock === 0 && (
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <span class="rounded-md bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-300">Sin stock</span>
+                    </div>
+                  )}
+                </div>
+
+                <!-- Info -->
+                <div class="flex flex-1 flex-col p-4">
+                  <div class="mb-2 flex items-center gap-2">
+                    {product.category && (
+                      <span class="rounded-full bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-300">
+                        {product.category.name}
+                      </span>
+                    )}
+                    {product.brand && (
+                      <span class="text-xs text-slate-500">{product.brand.name}</span>
+                    )}
+                  </div>
+
+                  <h2 class="flex-1 text-sm font-semibold leading-snug text-slate-100 line-clamp-2">
+                    {product.name}
+                  </h2>
+
+                  {product.short_description && (
+                    <p class="mt-1 text-xs text-slate-500 line-clamp-1">{product.short_description}</p>
+                  )}
+
+                  <div class="mt-3 flex items-baseline gap-2">
+                    <span class="text-lg font-bold text-white">
+                      ${product.price.toLocaleString('es-CO')}
+                    </span>
+                    {product.compare_at_price && (
+                      <span class="text-sm text-slate-500 line-through">
+                        ${product.compare_at_price.toLocaleString('es-CO')}
+                      </span>
+                    )}
+                  </div>
+
+                  {product.stock > 0 && (
+                    <div class="mt-2 flex items-center gap-1.5">
+                      <div class="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      <span class="text-xs text-emerald-400">{product.stock} en stock</span>
+                    </div>
+                  )}
+                </div>
+              </a>
+            );
+          })}
+        </div>
+
+        <!-- Paginación -->
+        {totalPages > 1 && (
+          <nav class="mt-12 flex items-center justify-center gap-2" aria-label="Paginación">
+            {page > 1 && (
+              <a href={pageUrl(page - 1)} class="btn-secondary">← Anterior</a>
+            )}
+            <div class="flex items-center gap-1">
+              {getPaginationRange(page, totalPages).map(p =>
+                p === '...' ? (
+                  <span class="px-2 text-slate-500 select-none">…</span>
+                ) : (
+                  <a
+                    href={pageUrl(p as number)}
+                    class={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                      p === page ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    {p}
+                  </a>
+                )
+              )}
+            </div>
+            {page < totalPages && (
+              <a href={pageUrl(page + 1)} class="btn-secondary">Siguiente →</a>
+            )}
+          </nav>
+        )}
+      </>
+    ) : (
+      <div class="flex flex-col items-center justify-center py-28 text-center">
+        <svg class="h-16 w-16 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+            d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h3 class="mt-4 text-lg font-semibold text-slate-200">Sin resultados</h3>
+        <p class="mt-2 text-slate-500">Prueba con otros términos o elimina los filtros activos.</p>
+        <a href="/" class="btn-primary mt-6">Ver todos los productos</a>
+      </div>
+    )}
+  </section>
+
+</LayoutPublico>
