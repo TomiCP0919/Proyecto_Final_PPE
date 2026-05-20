@@ -23,6 +23,7 @@ as $$
     from public.profiles
     where id = auth.uid()
     and role = 'admin'
+    and approval_status = 'approved'
   );
 $$;
 
@@ -37,6 +38,7 @@ as $$
     from public.profiles
     where id = auth.uid()
     and role in ('admin', 'editor')
+    and approval_status = 'approved'
   );
 $$;
 

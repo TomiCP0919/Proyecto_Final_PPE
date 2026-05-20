@@ -5,9 +5,15 @@
    these types define the contract for the admin UI.
    ─────────────────────────────────────────────── */
 
+export type AdminRole = 'admin' | 'editor';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Profile {
   id: string;
-  full_name: string;
+  email: string | null;
+  full_name: string | null;
+  role: AdminRole;
+  approval_status: ApprovalStatus;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
