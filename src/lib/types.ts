@@ -12,8 +12,8 @@ export interface Profile {
   id: string;
   email: string | null;
   full_name: string | null;
-  role: 'admin' | 'editor' | null;
-  approval_status: 'pending' | 'approved' | 'rejected';
+  role: AdminRole | null;
+  approval_status: ApprovalStatus;
   created_at: string;
   updated_at: string;
 }

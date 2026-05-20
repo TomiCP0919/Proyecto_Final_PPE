@@ -51,16 +51,6 @@ set approval_status = 'approved'
 where role in ('admin', 'editor')
 and approval_status = 'pending';
 
--- Corregir nombres de usuarios existentes según su rol
-update public.profiles
-set full_name = case
-  when role = 'admin' then 'Administrador TechHub'
-  when role = 'editor' then 'Editor TechHub'
-  else full_name
-end
-where role in ('admin', 'editor')
-and (full_name is null or full_name = 'Usuario pendiente');
-
 -- Índice único para email cuando exista
 create unique index if not exists profiles_email_unique
 on public.profiles(email)
@@ -81,31 +71,21 @@ begin
     new.full_name := 'Usuario rechazado';
   end if;
 
-  -- Si el usuario está pendiente y no tiene nombre, poner nombre por defecto
-  if new.approval_status = 'pending'
-     and (new.full_name is null or btrim(new.full_name) = '') then
-    new.full_name := 'Usuario pendiente';
+  -- Si el usuario está pendiente, asegurar nombre de espera
+  if new.approval_status = 'pending' then
+    if new.full_name is null or btrim(new.full_name) = '' then
+      new.full_name := 'Usuario pendiente';
+    end if;
   end if;
 
-  -- Si el usuario está aprobado y no tiene nombre claro, ponerlo según rol
-  if new.approval_status = 'approved' then
-    if new.role = 'admin'
-       and (
-         new.full_name is null
-         or btrim(new.full_name) = ''
-         or new.full_name in ('Usuario pendiente', 'Usuario rechazado')
-       ) then
-      new.full_name := 'Administrador TechHub';
-    end if;
+  -- Si el usuario está aprobado como admin
+  if new.approval_status = 'approved' and new.role = 'admin' then
+    new.full_name := 'Administrador TechHub';
+  end if;
 
-    if new.role = 'editor'
-       and (
-         new.full_name is null
-         or btrim(new.full_name) = ''
-         or new.full_name in ('Usuario pendiente', 'Usuario rechazado')
-       ) then
-      new.full_name := 'Editor TechHub';
-    end if;
+  -- Si el usuario está aprobado como editor
+  if new.approval_status = 'approved' and new.role = 'editor' then
+    new.full_name := 'Editor TechHub';
   end if;
 
   return new;
@@ -119,13 +99,12 @@ before insert or update on public.profiles
 for each row
 execute function public.normalize_profile_status();
 
--- Actualizar usuarios que ya estaban rechazados para que pasen por el trigger
+-- Actualizar perfiles existentes para que pasen por el trigger
 update public.profiles
-set approval_status = 'rejected'
-where approval_status = 'rejected';
+set approval_status = approval_status;
 
 -- =========================
--- TRIGGER: crear profile pendiente al registrarse
+-- FUNCIÓN: crear profile pendiente al registrarse
 -- =========================
 
 create or replace function public.handle_new_admin_signup()
