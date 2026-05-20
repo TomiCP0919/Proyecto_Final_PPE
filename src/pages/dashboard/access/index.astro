@@ -1,0 +1,10 @@
+---
+export const prerender = true;
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AccessPage from '../../../components/pages/AccessPage';
+import '../../../styles/globals.css';
+---
+
+<BaseLayout title="Gestionar Accesos">
+  <AccessPage client:only="react" />
+</BaseLayout>
