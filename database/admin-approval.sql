@@ -10,6 +10,14 @@ add column if not exists email text;
 alter table public.profiles
 add column if not exists approval_status text not null default 'pending';
 
+-- Asegurar nombre por defecto
+alter table public.profiles
+alter column full_name set default 'Usuario pendiente';
+
+-- Permitir que role pueda ser NULL cuando el usuario sea rechazado
+alter table public.profiles
+alter column role drop not null;
+
 -- Eliminar avatar_url si existía en versiones anteriores
 alter table public.profiles
 drop column if exists avatar_url;
@@ -21,6 +29,14 @@ drop constraint if exists profiles_approval_status_check;
 alter table public.profiles
 add constraint profiles_approval_status_check
 check (approval_status in ('pending', 'approved', 'rejected'));
+
+-- Rehacer la restricción de roles para aceptar admin, editor o NULL
+alter table public.profiles
+drop constraint if exists profiles_role_check;
+
+alter table public.profiles
+add constraint profiles_role_check
+check (role is null or role in ('admin', 'editor'));
 
 -- Copiar emails desde auth.users a profiles
 update public.profiles p
@@ -51,6 +67,64 @@ on public.profiles(email)
 where email is not null;
 
 -- =========================
+-- FUNCIÓN: normalizar estado del perfil
+-- =========================
+
+create or replace function public.normalize_profile_status()
+returns trigger
+language plpgsql
+as $$
+begin
+  -- Si el usuario está rechazado, queda sin rol y con nombre claro
+  if new.approval_status = 'rejected' then
+    new.role := null;
+    new.full_name := 'Usuario rechazado';
+  end if;
+
+  -- Si el usuario está pendiente y no tiene nombre, poner nombre por defecto
+  if new.approval_status = 'pending'
+     and (new.full_name is null or btrim(new.full_name) = '') then
+    new.full_name := 'Usuario pendiente';
+  end if;
+
+  -- Si el usuario está aprobado y no tiene nombre claro, ponerlo según rol
+  if new.approval_status = 'approved' then
+    if new.role = 'admin'
+       and (
+         new.full_name is null
+         or btrim(new.full_name) = ''
+         or new.full_name in ('Usuario pendiente', 'Usuario rechazado')
+       ) then
+      new.full_name := 'Administrador TechHub';
+    end if;
+
+    if new.role = 'editor'
+       and (
+         new.full_name is null
+         or btrim(new.full_name) = ''
+         or new.full_name in ('Usuario pendiente', 'Usuario rechazado')
+       ) then
+      new.full_name := 'Editor TechHub';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists normalize_profile_status on public.profiles;
+
+create trigger normalize_profile_status
+before insert or update on public.profiles
+for each row
+execute function public.normalize_profile_status();
+
+-- Actualizar usuarios que ya estaban rechazados para que pasen por el trigger
+update public.profiles
+set approval_status = 'rejected'
+where approval_status = 'rejected';
+
+-- =========================
 -- TRIGGER: crear profile pendiente al registrarse
 -- =========================
 
@@ -71,11 +145,21 @@ begin
   values (
     new.id,
     new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', 'Usuario pendiente'),
+    coalesce(
+      nullif(new.raw_user_meta_data->>'full_name', ''),
+      'Usuario pendiente'
+    ),
     'editor',
     'pending'
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update
+  set 
+    email = coalesce(public.profiles.email, excluded.email),
+    full_name = case
+      when public.profiles.full_name is null or btrim(public.profiles.full_name) = ''
+      then excluded.full_name
+      else public.profiles.full_name
+    end;
 
   return new;
 end;
